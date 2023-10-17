@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic=["dependencies"]
+version = "0.0.1"
+name = "thonny_astro_pi_replay"
+description = "A Thonny plugin to use the Astro Pi Replay tool"
+authors = [
+  { name="Geraint Ballinger", email="geraint.ballinger@raspberrypi.org" }
+]
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/astro-pi/Astro-Pi-Replay"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

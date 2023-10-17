@@ -1,0 +1,69 @@
+name: Deploy worker
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+        description: The OS to run on.
+      pytest-debug:
+        required: false
+        type: string
+        description: Set this to make pytest emit debug logs.
+      python-version:
+        required: true
+        type: string
+        description: The python version to run.
+
+permissions:
+  contents: write
+
+jobs:
+  update_semver_tags:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      - run: pip install twine
+      - name: Debugging
+        run: |
+          type -P grep
+          grep -P "" Makefile || echo "-P unsupported"
+          type -P tr
+          type -P cut
+          type -P cat
+      - name: Check that the python version in the code matches the tag
+        run: |
+          REPO_VERSION=$(make version)
+          if [ "refs/tags/v$REPO_VERSION" != "${{ github.ref }}" ]; then
+            echo "Declared version in repository does not match tag '${{ github.ref }}'"
+            exit 1
+          fi
+      - run: make publish_git_tags
+  publish_to_test_pypi:
+    runs-on: ${{ inputs.os }}
+    needs: update_semver_tags
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      - name: Publish to test PyPi
+        run: make publish_test_pypi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_KEY }}
+      - name: Notify alerts channel of failure
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2.2.1
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: Failure Message
+          MSG_MINIMAL: actions url, commit, ref
+          SLACK_FOOTER: Build failure
