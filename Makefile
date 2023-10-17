@@ -45,8 +45,10 @@ VERSION:=$(shell cat $(PYPROJECT) | \
      $(GREP) -o$(GREP_REGEX_ENGINE) 'version = "[0-9\.]+"' | \
      $(CUT) -d" " -f3 | \
      $(TR) -d '""')
+VERSION_MAJOR:=$(shell $(PYTHON3) -c 'print("$(VERSION)".split(".")[0])')
+VERSION_MINOR:=$(shell $(PYTHON3) -c 'print("$(VERSION)".split(".")[1])')
+VERSION_PATCH:=$(shell $(PYTHON3) -c 'print("$(VERSION)".split(".")[2])')
 VENV_NAME:=venv
-
 
 
 all:
@@ -55,6 +57,8 @@ all:
 	@echo "build_python      - Build the python package"
 	@echo "clean             - Clean (delete files) from the environment"
 	@echo "                    and start afresh."
+	@echo "diagnostics       - Run diagnostics in case of any problems with"
+	@echo "                    this Makefile."
 	@echo "publish_git_tags  - Publish and overwrite git tags to the remote."
 	@echo "publish_prod_pypi - Build and publish a release to prod PyPi."
 	@echo "publish_test_pypi - Build and publish a release to test PyPi."
@@ -89,6 +93,13 @@ assert_on_git_branch_head_or_%:
 	fi
 
 build_python: $(DIST_DIR)
+
+diagnostics:
+	@echo "Detected project name: $(NAME)"
+	@echo "Detected version is: $(VERSION)"
+	@echo "Detected major version is: $(VERSION_MAJOR)"
+	@echo "Detected minor version is: $(VERSION_MINOR)"
+	@echo "Detected patch version is: $(VERSION_PATCH)"
 
 $(DIST_DIR): 	$(VENV_NAME)
 	. $(VENV_NAME)/bin/activate; $(VENV_PYTHON) -m $(BUILD)
@@ -133,7 +144,7 @@ $(VENV_NAME): $(VENV_NAME)/touchfile
 version:
 	@echo $(VERSION)
 
-.PHONY:	all assert_env_var_set_% assert_installed_% assert_min_python_version_detected assert_on_git_branch_head_or_% build_python pre_commit_install clean publish_git_tags publish_test_pypi publish_prod_pypi setup_developer version
+.PHONY:	all assert_env_var_set_% assert_installed_% assert_min_python_version_detected assert_on_git_branch_head_or_% build_python diagnostics pre_commit_install clean publish_git_tags publish_test_pypi publish_prod_pypi setup_developer version
 
 clean:
 	@$(RM) -rf $(DIST_DIR) $(VENV_NAME)
