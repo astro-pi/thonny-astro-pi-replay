@@ -30,7 +30,7 @@ repos:
    hooks:
     - id: bandit
       args: ["-c", "pyproject.toml"]
-      files: (^thonycontrib/)
+      files: (^thonnycontrib/)
       types: [python]
       additional_dependencies: [ "bandit[toml]" ]
 

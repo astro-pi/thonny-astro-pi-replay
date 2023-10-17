@@ -18,6 +18,7 @@ XARGS:=xargs
 BUILD:=build
 TOUCH:=touch
 TWINE:=twine
+PRE_COMMIT:=pre-commit
 VENV:=venv
 VENV_PIP:=pip
 VENV_PYTHON:=$(VENV)/bin/python3
@@ -57,6 +58,10 @@ all:
 	@echo "publish_git_tags  - Publish and overwrite git tags to the remote."
 	@echo "publish_prod_pypi - Build and publish a release to prod PyPi."
 	@echo "publish_test_pypi - Build and publish a release to test PyPi."
+	@echo "publish_test_pypi - Build and publish a release to test PyPi."
+	@echo "setup_developer   - Install pre-commit hooks and venv to"
+	@echo "                    the developer environment."
+
 	@echo "version           - Print the package version"
 	@echo ""
 
@@ -88,6 +93,11 @@ build_python: $(DIST_DIR)
 $(DIST_DIR): 	$(VENV_NAME)
 	. $(VENV_NAME)/bin/activate; $(VENV_PYTHON) -m $(BUILD)
 
+pre_commit_install: $(VENV_NAME)
+	@echo "Installing pre-commit hooks"
+	. $(VENV_NAME)/bin/activate; \
+	$(PRE_COMMIT) install --install-hooks
+
 publish_git_tags: assert_on_git_branch_head_or_main
 	@echo "Creating semver tags for $(VERSION)"
 	$(GIT) tag -f v$(VERSION_MAJOR)
@@ -108,6 +118,10 @@ publish_prod_pypi: assert_on_git_branch_head_or_main assert_env_var_set_TWINE_US
 	$(TWINE) check $(DIST_DIR)/* ; \
 	$(TWINE) upload $(DIST_DIR)/*
 
+setup_developer: $(VENV_NAME) pre_commit_install
+	@echo "Activate venv with $(VENV_NAME)/bin/activate"
+	@echo "or use direnv"
+
 $(VENV_NAME)/touchfile: $(REQUIREMENTS_TXT)
 	$(TEST) -d $(VENV_NAME) || $(PYTHON3) $(PYFLAGS) -m $(VENV) $(VENV_NAME) && \
 	. $(VENV_NAME)/bin/activate ; \
@@ -119,7 +133,7 @@ $(VENV_NAME): $(VENV_NAME)/touchfile
 version:
 	@echo $(VERSION)
 
-.PHONY:	all assert_env_var_set_% assert_installed_% assert_min_python_version_detected assert_on_git_branch_head_or_% build_python clean publish_test_pypi publish_prod_pypi version
+.PHONY:	all assert_env_var_set_% assert_installed_% assert_min_python_version_detected assert_on_git_branch_head_or_% build_python pre_commit_install clean publish_git_tags publish_test_pypi publish_prod_pypi setup_developer version
 
 clean:
 	@$(RM) -rf $(DIST_DIR) $(VENV_NAME)
