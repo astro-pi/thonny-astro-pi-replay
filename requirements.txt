@@ -1,2 +1,2 @@
 thonny>=3.1.2
-astro_pi_replay>=0.0.16
+astro_pi_replay>=0.0.17

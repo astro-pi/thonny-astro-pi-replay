@@ -67,3 +67,26 @@ jobs:
           SLACK_TITLE: Failure Message
           MSG_MINIMAL: actions url, commit, ref
           SLACK_FOOTER: Build failure
+  publish_to_prod_pypi:
+    runs-on: ${{ inputs.os }}
+    needs: publish_to_test_pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      - name: Publish to test PyPi
+        run: make publish_prod_pypi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_KEY }}
+      - name: Notify alerts channel of failure
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2.2.1
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: Failure Message
+          MSG_MINIMAL: actions url, commit, ref
+          SLACK_FOOTER: Build failure
