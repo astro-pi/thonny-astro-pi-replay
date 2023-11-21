@@ -49,9 +49,9 @@ def astro_pi_replay():
             raise RuntimeError(f"Cannot find {executor} in venv")
         executor = str(executor_path)
 
-    command: str = f"!{executor} run {filename}"
+    command: str = f'!"{executor}" run "{filename}"'
     logger.debug(f"Executing {command}")
-    get_shell().submit_magic_command(f"!{executor} run {filename}")
+    get_shell().submit_magic_command(command)
 
 
 def load_plugin():
