@@ -32,6 +32,7 @@ GREP_REGEX_ENGINE:=$(shell $(GREP) "-P" Makefile &> /dev/null && echo "P" || ech
 MAIN_BRANCH:=main
 PYFLAGS=
 PYPROJECT:=pyproject.toml
+REQUIREMENTS_TXT:=requirements.txt
 REQUIREMENTS_DEV_TXT:=requirements-dev.txt
 SRC_DIR:=thonnycontrib
 # Dynamic configuration to ensure pyproject.toml is the source of truth
@@ -133,9 +134,10 @@ setup_developer: $(VENV_NAME) pre_commit_install
 	@echo "Activate venv with $(VENV_NAME)/bin/activate"
 	@echo "or use direnv"
 
-$(VENV_NAME)/touchfile: $(REQUIREMENTS_TXT)
-	$(TEST) -d $(VENV_NAME) || $(PYTHON3) $(PYFLAGS) -m $(VENV) $(VENV_NAME) && \
+$(VENV_NAME)/touchfile: $(REQUIREMENTS_TXT) $(REQUIREMENTS_DEV_TXT)
+	$(TEST) -d $(VENV_NAME) || $(PYTHON3) $(PYFLAGS) -m $(VENV) --upgrade-deps $(VENV_NAME) && \
 	. $(VENV_NAME)/bin/activate ; \
+	$(VENV_PIP) install --upgrade -r $(REQUIREMENTS_TXT) ; \
 	$(VENV_PIP) install --upgrade -r $(REQUIREMENTS_DEV_TXT) ; \
 	$(TOUCH) $(VENV_NAME)/touchfile
 
