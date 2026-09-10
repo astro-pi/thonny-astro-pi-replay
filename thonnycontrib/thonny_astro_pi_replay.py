@@ -1,8 +1,16 @@
-import logging
+from json.decoder import JSONDecodeError
 from pathlib import Path
+from tkinter import ttk
 from tkinter.messagebox import showinfo
+from typing import Any
+import json
+import logging
+import subprocess
+import tkinter as tk
 
 from thonny import get_runner, get_shell, get_workbench
+
+from astro_pi_replay.configuration import get_config_file_path
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +26,69 @@ SAVE_FIRST_MESSAGE: str = (
 NO_EXECUTABLE_DETECTED_MESSAGE: str = "Don't know how to locate Python venv executable"
 CAPTION: str = "Run the current file with Astro-Pi-Replay"
 
+def load_config() -> dict[str,Any]:
+    config: dict[str,Any] = {
+        "photography_type": "VIS"
+    }
+    config_path = get_config_file_path()
 
-def astro_pi_replay():
+    try:
+        config |= json.loads(config_path.read_text())
+    except (JSONDecodeError, FileNotFoundError, IOError):
+        pass
+    return config
+
+
+def save_config(photography_type: str) -> None:
+    args = [
+        "Astro-Pi-Replay", "configure",
+        "--photography-type", photography_type
+    ]
+    args_string = " ".join(args)
+    logger.debug(f"Executing '{args_string}'")
+
+    subprocess.run(args, check=True)
+
+
+def open_manage_astro_pi_replay():
+    """Handler for the Tools > Manage Astro Pi Replay menu item."""
+    config = load_config()
+    current_type: str = config["photography_type"]
+
+    # Open window
+    window = tk.Toplevel(get_workbench())
+    window.title("Manage Astro Pi Replay")
+
+    main_frame = ttk.Frame(window, padding="15 15 15 15")
+    main_frame.pack(fill="both", expand=True)
+
+    # Description
+    desc_text = "Select the photography type for the Astro Pi Replay."
+    desc_label = ttk.Label(
+            main_frame, text=desc_text, wraplength=260,
+            justify="center")
+    desc_label.pack(pady=10, padx=10)
+
+    # Dropdown between IR and VIS
+    selected_type = tk.StringVar(value=current_type)
+    dropdown = ttk.Combobox(
+        main_frame,
+        textvariable=selected_type,
+        values=("VIS", "IR"),
+        state="readonly"
+    )
+    dropdown.pack(pady=5)
+
+    def do_save_and_close():
+        save_config(str(selected_type.get()))
+        window.destroy()
+
+    # Save button
+    save_button = ttk.Button(main_frame, text="Save", command=do_save_and_close)
+    save_button.pack(pady=15)
+
+
+def run_with_astro_pi_replay():
     """
     Executes the current file with the Astro-Pi-Replay tool.
     Requires the current file to be saved.
@@ -60,6 +129,14 @@ def load_plugin():
         command_id="astro_pi_replay",
         menu_name="run",
         command_label=PROGRAM_NAME,
-        handler=astro_pi_replay,
+        handler=run_with_astro_pi_replay,
         caption=CAPTION,
     )
+    get_workbench().add_command(
+        command_id="manage_astro_pi_replay",
+        menu_name="tools",
+        command_label="Manage Astro Pi Replay",
+        handler=open_manage_astro_pi_replay,
+        caption="Configure Astro Pi Replay settings"
+    )
+
