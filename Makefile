@@ -19,6 +19,7 @@ BUILD:=build
 TOUCH:=touch
 TWINE:=twine
 PRE_COMMIT:=pre-commit
+PYTEST:=pytest
 VENV:=venv
 VENV_PIP:=pip
 VENV_PYTHON:=$(VENV)/bin/python3
@@ -32,6 +33,11 @@ GREP_REGEX_ENGINE:=$(shell $(GREP) "-P" Makefile &> /dev/null && echo "P" || ech
 MAIN_BRANCH:=main
 PYFLAGS=
 PYPROJECT:=pyproject.toml
+ifdef PYTEST_DEBUG
+PYTEST_FLAGS:=-s --log-cli-level=DEBUG
+else
+PYTEST_FLAGS:=-s
+endif
 REQUIREMENTS_TXT:=requirements.txt
 REQUIREMENTS_DEV_TXT:=requirements-dev.txt
 SRC_DIR:=thonnycontrib
@@ -134,6 +140,9 @@ setup_developer: $(VENV_NAME) pre_commit_install
 	@echo "Activate venv with $(VENV_NAME)/bin/activate"
 	@echo "or use direnv"
 
+test: $(VENV_NAME)
+	. $(VENV_NAME)/bin/activate; $(PYTEST) $(PYTEST_FLAGS)
+
 $(VENV_NAME)/touchfile: $(REQUIREMENTS_TXT) $(REQUIREMENTS_DEV_TXT)
 	$(TEST) -d $(VENV_NAME) || $(PYTHON3) $(PYFLAGS) -m $(VENV) --upgrade-deps $(VENV_NAME) && \
 	. $(VENV_NAME)/bin/activate ; \
@@ -146,7 +155,7 @@ $(VENV_NAME): $(VENV_NAME)/touchfile
 version:
 	@echo $(VERSION)
 
-.PHONY:	all assert_env_var_set_% assert_installed_% assert_min_python_version_detected assert_on_git_branch_head_or_% build_python diagnostics pre_commit_install clean publish_git_tags publish_test_pypi publish_prod_pypi setup_developer version
+.PHONY:	all assert_env_var_set_% assert_installed_% assert_min_python_version_detected assert_on_git_branch_head_or_% build_python diagnostics pre_commit_install clean test publish_git_tags publish_test_pypi publish_prod_pypi setup_developer version
 
 clean:
 	@$(RM) -rf $(DIST_DIR) $(VENV_NAME)
