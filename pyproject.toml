@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 dynamic=["dependencies"]
-version = "0.0.5"
+version = "0.1.0"
 name = "thonny_astro_pi_replay"
 description = "A Thonny plugin to use the Astro Pi Replay tool"
 authors = [
@@ -39,3 +39,5 @@ include = '\.pyi?$'
 [tool.bandit]
 skips = ["B101", "B404"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
