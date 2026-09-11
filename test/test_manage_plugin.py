@@ -3,15 +3,17 @@ from thonny.shell import ToplevelCommand
 from thonnycontrib.thonny_astro_pi_replay import load_config, save_config, open_manage_astro_pi_replay
 from tkinter import ttk
 from unittest.mock import patch
-import tkinter as tk
+import logging
 import subprocess
 import sys
+import tkinter as tk
 
 import pytest
 
 from conftest import ThonnyMocks
 from utils import get_test_resource
 
+logger = logging.getLogger(__name__)
 
 class TestManagePluginLogic:
 
@@ -105,17 +107,14 @@ class TestManagePluginUI:
         # Verify initial value loaded from config
         assert combobox.get() == "VIS"
 
-        # TODO need to stub run_replay to just call
-        # subprocess instead
-
         # Simulate user selection and clicking Save
         combobox.set("IR")
-        print("Invoking")
+        logger.debug("Invoking")
         button.invoke()
-        print("invoked")
+        logger.debug("invoked")
 
         # Verify saved state on disk
-        print("Loading")
+        logger.debug("Loading")
         updated_config = load_config()
         assert updated_config["photography_type"] == "IR"
 
