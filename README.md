@@ -19,3 +19,11 @@ If installation is successful, you should see the "Astro Pi Replay" button in th
 ![Thonny Astro Pi Replay button](docs/2a.png)
 
 Selecting this option Use this to run the current open program using the Astro Pi Replay tool!
+
+# Changing the photography type
+
+The plugin supports changing the photography type replayed from VIS to IR or _vice versa_. To change the plugin settings, go to the "Tools" menu and click the "Manage Astro Pi Replay plugin" option. This will bring up the following dialog:
+
+![Manage Astro Pi Replay plugin dialog](docs/plugin_management_dialog.png)
+
+Select the desired photography mode using the dropdown and then click the "Save" button.
