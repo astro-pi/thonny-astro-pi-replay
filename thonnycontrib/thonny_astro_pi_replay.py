@@ -5,16 +5,18 @@ from tkinter.messagebox import showinfo
 from typing import Any
 import json
 import logging
-import subprocess
+import logging.handlers
+import os
+import sys
 import tkinter as tk
 
-from thonny import get_runner, get_shell, get_workbench
-
 from astro_pi_replay.configuration import get_config_file_path
+from thonny import get_workbench, THONNY_USER_DIR
+from thonny.shell import ToplevelCommand, get_runner
 
-logger = logging.getLogger(__name__)
 
-
+CURRENT_DIR = Path(__file__).parent
+ICON_DIR = CURRENT_DIR / "res"
 PLUGIN_NAME: str = Path(__file__).name
 PROGRAM_NAME: str = "Astro-Pi-Replay"
 
@@ -25,6 +27,99 @@ SAVE_FIRST_MESSAGE: str = (
 )
 NO_EXECUTABLE_DETECTED_MESSAGE: str = "Don't know how to locate Python venv executable"
 CAPTION: str = "Run the current file with Astro-Pi-Replay"
+
+def get_logger():
+    logger = logging.getLogger("thonny_astro_pi_replay")
+    logger.setLevel(logging.DEBUG)
+    log_path = os.path.join(THONNY_USER_DIR, "astro_pi_plugin.log")
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_path,
+        maxBytes=5 * 2**20, # 5 MB
+        backupCount=3
+    )
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(threadName)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+    return logger
+
+logger = get_logger()
+
+# Helpers
+
+def get_project_directory():
+    workbench = get_workbench()
+
+    editor = workbench.get_editor_notebook().get_current_editor()
+    if editor:
+        filename = editor.get_filename()
+        if filename:
+            return os.path.dirname(filename)
+
+    cwd = workbench.get_local_cwd()
+    if cwd and cwd != "/":
+        return cwd
+
+    return os.path.expanduser("~")
+
+def run_replay(args: list[str]):
+    workbench = get_workbench()
+    if not workbench.get_option("shell.terminal_emulation"):
+        print("Note: Enable 'Terminal emulation' in Tools -> Options -> Shell for colors.")
+
+    runner = get_runner()
+    if not runner:
+        return
+
+    frontend_paths = sys.path
+    joined_frontend_paths = os.pathsep.join(frontend_paths)
+
+    merged_args: list[str] = [
+        "Astro-Pi-Replay",
+    ] + args
+    workdir = get_project_directory()
+
+    logger.debug(f"frontend_paths: {frontend_paths}")
+    logger.debug(f"merged_args: {merged_args}")
+    logger.debug(f"workdir: {workdir}")
+
+    script = f"""
+import sys
+import os
+
+sys.path.extend({repr(frontend_paths)})
+
+from astro_pi_replay.main import main
+
+existing_pythonpath = os.environ.get("PYTHONPATH", "")
+
+# Setup the environment
+if existing_pythonpath:
+    os.environ["PYTHONPATH"] = f"{joined_frontend_paths}{os.pathsep}{{existing_pythonpath}}"
+else:
+    os.environ["PYTHONPATH"] = "{joined_frontend_paths}"
+os.environ["FORCE_COLOR"] = "1"
+
+# Mock the command line arguments
+sys.argv = {merged_args}
+
+os.chdir({repr(workdir)})
+
+try:
+    main()
+except SystemExit as e:
+    if str(e) != "0":
+        print(f"\\nExited with code: {{e}}", file=sys.stderr)
+"""
+
+    logger.debug(f"script: {script}")
+
+
+    # Dispatch in-memory execution request directly
+    cmd = ToplevelCommand("execute_source", source=script)
+    runner.send_command(cmd)
+
 
 def load_config() -> dict[str,Any]:
     config: dict[str,Any] = {
@@ -40,14 +135,9 @@ def load_config() -> dict[str,Any]:
 
 
 def save_config(photography_type: str) -> None:
-    args = [
-        "Astro-Pi-Replay", "configure",
-        "--photography-type", photography_type
-    ]
-    args_string = " ".join(args)
-    logger.debug(f"Executing '{args_string}'")
-
-    subprocess.run(args, check=True)
+    run_replay([
+        "configure", "--photography-type", photography_type
+    ])
 
 
 def open_manage_astro_pi_replay():
@@ -56,14 +146,19 @@ def open_manage_astro_pi_replay():
     current_type: str = config["photography_type"]
 
     # Open window
-    window = tk.Toplevel(get_workbench())
+    workbench = get_workbench()
+    window = tk.Toplevel(workbench)
     window.title("Manage Astro Pi Replay")
 
-    main_frame = ttk.Frame(window, padding="15 15 15 15")
+    window.transient(workbench)
+    window.resizable(False, False)
+
+    # main_frame = ttk.Frame(window, padding="15 15 15 15")
+    main_frame = ttk.Frame(window, padding="15")
     main_frame.pack(fill="both", expand=True)
 
     # Description
-    desc_text = "Select the photography type for the Astro Pi Replay."
+    desc_text = "Select the photography type for the Astro Pi Replay tool."
     desc_label = ttk.Label(
             main_frame, text=desc_text, wraplength=260,
             justify="center")
@@ -104,23 +199,7 @@ def run_with_astro_pi_replay():
         showinfo(SAVE_FIRST_WINDOW_NAME, SAVE_FIRST_MESSAGE)
         return
     logger.debug(f"filename: {filename}")
-
-    executor: str = PROGRAM_NAME
-    if get_runner().using_venv():
-        logger.debug("Detected venv")
-        proxy = get_runner().get_backend_proxy()
-        executable = proxy.get_target_executable()
-        if executable is None:
-            raise RuntimeError(NO_EXECUTABLE_DETECTED_MESSAGE)
-        executor_path = Path(executable).parent / executor
-        logger.debug(f"executor_path: {str(executor_path)}")
-        if not executor_path.exists():
-            raise RuntimeError(f"Cannot find {executor} in venv")
-        executor = str(executor_path)
-
-    command: str = f'!"{executor}" run "{filename}"'
-    logger.debug(f"Executing {command}")
-    get_shell().submit_magic_command(command)
+    run_replay(["run", filename])
 
 
 def load_plugin():
@@ -135,7 +214,7 @@ def load_plugin():
     get_workbench().add_command(
         command_id="manage_astro_pi_replay",
         menu_name="tools",
-        command_label="Manage Astro Pi Replay",
+        command_label="Manage Astro Pi Replay plugin",
         handler=open_manage_astro_pi_replay,
         caption="Configure Astro Pi Replay settings"
     )
