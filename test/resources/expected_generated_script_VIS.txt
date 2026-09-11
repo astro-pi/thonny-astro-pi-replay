@@ -1,0 +1,26 @@
+import sys
+import os
+
+sys.path.extend(['MOCK_PATH'])
+
+from astro_pi_replay.main import main
+
+existing_pythonpath = os.environ.get("PYTHONPATH", "")
+
+# Setup the environment
+if existing_pythonpath:
+    os.environ["PYTHONPATH"] = f"MOCK_PATH:{existing_pythonpath}"
+else:
+    os.environ["PYTHONPATH"] = "MOCK_PATH"
+os.environ["FORCE_COLOR"] = "1"
+
+# Mock the command line arguments
+sys.argv = ['Astro-Pi-Replay', 'configure', '--photography-type', 'VIS']
+
+os.chdir('MagicMock/get_workbench().get_editor_notebook().get_current_editor().get_filename()')
+
+try:
+    main()
+except SystemExit as e:
+    if str(e) != "0":
+        print(f"\nExited with code: {e}", file=sys.stderr)

@@ -1,11 +1,16 @@
 from pathlib import Path
+from thonny.shell import ToplevelCommand
 from thonnycontrib.thonny_astro_pi_replay import load_config, save_config, open_manage_astro_pi_replay
 from tkinter import ttk
 from unittest.mock import patch
 import tkinter as tk
-import time
+import subprocess
+import sys
 
 import pytest
+
+from conftest import ThonnyMocks
+from utils import get_test_resource
 
 
 class TestManagePluginLogic:
@@ -27,21 +32,26 @@ class TestManagePluginLogic:
         ("IR"),
     ])
     def test_set_config_calls_replay_tool_CLI(
-        self, photography_type: str
+        self, photography_type: str, thonny_mocks: ThonnyMocks
     ) -> None:
-        with patch("thonnycontrib.thonny_astro_pi_replay.subprocess") as mock_subprocess:
-            mock_subprocess.run.return_value = None
-            save_config(photography_type)
+        # when
+        save_config(photography_type)
 
-            mock_subprocess.run.assert_called_once_with(
-                [
-                    "Astro-Pi-Replay",
-                    "configure",
-                    "--photography-type", photography_type
-                ],
-                check=True
-            )
+        # then
+        script_output = thonny_mocks.generated_script
+        assert isinstance(script_output, str)
+        assert script_output.strip() == get_test_resource(
+            f"expected_generated_script_{photography_type}.txt"
+        ).read_text().strip()
+        thonny_mocks.runner.send_command.assert_called_once_with(
+            ToplevelCommand("execute_source",
+                            source=script_output)
+        )
 
+def patch_run_replay(args: list[str]):
+    subprocess.run([
+        sys.executable, "-m", "astro_pi_replay.main"
+    ] + args, check=True, text=True)
 
 class TestManagePluginUI:
 
@@ -60,7 +70,10 @@ class TestManagePluginUI:
         yield root
         root.destroy()
 
-    def test_ui_interactivity(self, tk_root):
+    @patch("thonnycontrib.thonny_astro_pi_replay.run_replay", side_effect=patch_run_replay)
+    def test_ui_interactivity(
+        self, mock_run_replay, tk_root
+    ) -> None:
 
         # WHEN
         open_manage_astro_pi_replay()
@@ -78,7 +91,7 @@ class TestManagePluginUI:
         label = frame.children["!label"]
         assert isinstance(label, ttk.Label)
         assert label.cget("text") == \
-            "Select the photography type for the Astro Pi Replay."
+            "Select the photography type for the Astro Pi Replay tool."
 
         assert "!combobox" in frame.children
         combobox = frame.children["!combobox"]
@@ -91,6 +104,9 @@ class TestManagePluginUI:
 
         # Verify initial value loaded from config
         assert combobox.get() == "VIS"
+
+        # TODO need to stub run_replay to just call
+        # subprocess instead
 
         # Simulate user selection and clicking Save
         combobox.set("IR")
