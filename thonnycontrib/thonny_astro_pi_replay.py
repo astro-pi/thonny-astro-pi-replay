@@ -5,7 +5,7 @@ from tkinter.messagebox import showinfo
 from typing import Any
 import json
 import logging
-import logging.handlers
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 import tkinter as tk
@@ -28,11 +28,12 @@ SAVE_FIRST_MESSAGE: str = (
 NO_EXECUTABLE_DETECTED_MESSAGE: str = "Don't know how to locate Python venv executable"
 CAPTION: str = "Run the current file with Astro-Pi-Replay"
 
-def get_logger():
-    logger = logging.getLogger("thonny_astro_pi_replay")
+logger = logging.getLogger("thonny_astro_pi_replay")
+
+def setup_logger():
     logger.setLevel(logging.DEBUG)
     log_path = os.path.join(THONNY_USER_DIR, "astro_pi_plugin.log")
-    file_handler = logging.handlers.RotatingFileHandler(
+    file_handler = RotatingFileHandler(
         log_path,
         maxBytes=5 * 2**20, # 5 MB
         backupCount=3
@@ -43,10 +44,6 @@ def get_logger():
     if not logger.handlers:
         logger.addHandler(file_handler)
     return logger
-
-logger = get_logger()
-
-# Helpers
 
 def get_project_directory():
     workbench = get_workbench()
@@ -63,15 +60,7 @@ def get_project_directory():
 
     return os.path.expanduser("~")
 
-def run_replay(args: list[str]):
-    workbench = get_workbench()
-    if not workbench.get_option("shell.terminal_emulation"):
-        print("Note: Enable 'Terminal emulation' in Tools -> Options -> Shell for colors.")
-
-    runner = get_runner()
-    if not runner:
-        return
-
+def generate_script(args: list[str]) -> str:
     frontend_paths = sys.path
     joined_frontend_paths = os.pathsep.join(frontend_paths)
 
@@ -84,7 +73,7 @@ def run_replay(args: list[str]):
     logger.debug(f"merged_args: {merged_args}")
     logger.debug(f"workdir: {workdir}")
 
-    script = f"""
+    return f"""
 import sys
 import os
 
@@ -113,8 +102,19 @@ except SystemExit as e:
         print(f"\\nExited with code: {{e}}", file=sys.stderr)
 """
 
-    logger.debug(f"script: {script}")
 
+
+def run_replay(args: list[str]):
+    workbench = get_workbench()
+    if not workbench.get_option("shell.terminal_emulation"):
+        print("Note: Enable 'Terminal emulation' in Tools -> Options -> Shell for colors.")
+
+    runner = get_runner()
+    if not runner:
+        return
+
+    script = generate_script(args)
+    logger.debug(f"script: {script}")
 
     # Dispatch in-memory execution request directly
     cmd = ToplevelCommand("execute_source", source=script)
@@ -122,6 +122,7 @@ except SystemExit as e:
 
 
 def load_config() -> dict[str,Any]:
+    logger.debug("Loading config")
     config: dict[str,Any] = {
         "photography_type": "VIS"
     }
@@ -203,6 +204,8 @@ def run_with_astro_pi_replay():
 
 
 def load_plugin():
+    setup_logger()
+
     logger.debug(f"Loading plugin {PROGRAM_NAME}...")
     get_workbench().add_command(
         command_id="astro_pi_replay",
